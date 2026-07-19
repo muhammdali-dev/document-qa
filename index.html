@@ -148,7 +148,7 @@
     </div>
 
     <script>
-        const API = 'http://127.0.0.1:8000';
+        const API = '';
 
         document.getElementById('pdfFile').addEventListener('change', function() {
             const fileName = this.files[0]?.name;
@@ -170,19 +170,25 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch(`${API}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
+                const response = await fetch('/upload', {
+    method: 'POST',
+    body: formData
+});
+
+const data = await response.json();
+
+if (!response.ok) {
+    throw new Error(data.detail || "Upload failed");
+}
 
                 status.className = 'status success';
                 status.textContent = `✅ PDF ready! ${data.pages} pages — Ab sawaal poochho!`;
 
-            } catch (error) {
-                status.className = 'status error';
-                status.textContent = 'Error: PDF upload nahi hui!';
-            }
+            }catch (error) {
+    console.error(error);
+    status.className = 'status error';
+    status.textContent = error.message;
+}
         }
 
         async function askQuestion() {
