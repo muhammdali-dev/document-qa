@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Q&A</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0D1117;
+            color: #E6EDF3;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+        }
+        h1 { color: #58A6FF; margin-bottom: 8px; font-size: 28px; }
+        .subtitle { color: #8B949E; margin-bottom: 30px; font-size: 14px; }
+        .container { width: 100%; max-width: 700px; }
+        .upload-box {
+            background: #161B22;
+            border: 2px dashed #30363D;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+        .upload-box:hover { border-color: #58A6FF; }
+        .upload-box p { color: #8B949E; margin-bottom: 14px; }
+        input[type="file"] { display: none; }
+        .upload-btn {
+            background: #1F6FEB;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .upload-btn:hover { background: #388BFD; }
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: none;
+        }
+        .status.success { background: rgba(63,185,80,0.1); color: #3FB950; display: block; }
+        .status.error { background: rgba(248,81,73,0.1); color: #F85149; display: block; }
+        .status.loading { background: rgba(88,166,255,0.1); color: #58A6FF; display: block; }
+        .qa-box {
+            background: #161B22;
+            border: 1px solid #30363D;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .chat-area {
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-width: 85%;
+        }
+        .user-msg { background: #1F6FEB; color: white; align-self: flex-end; }
+        .ai-msg { background: #21262D; color: #E6EDF3; align-self: flex-start; border: 1px solid #30363D; }
+        .input-area { display: flex; gap: 10px; }
+        .input-area input {
+            flex: 1;
+            background: #0D1117;
+            border: 1px solid #30363D;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #E6EDF3;
+            font-size: 14px;
+            outline: none;
+        }
+        .input-area input:focus { border-color: #58A6FF; }
+        .send-btn {
+            background: #1F6FEB;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .send-btn:disabled { background: #21262D; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <button onclick="toggleMode()" id="modeBtn" style="
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: #21262D;
+    color: #E6EDF3;
+    border: 1px solid #30363D;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    z-index: 100;
+">🌙 Dark</button>
+    <h1>📄 Document Q&A</h1>
+    <p class="subtitle">Upload your PDF and ask questions!</p>
+
+    <div class="container">
+        <div class="upload-box">
+            <p>📁 Upload your PDF file here</p>
+            <input type="file" id="pdfFile" accept=".pdf">
+            <button class="upload-btn" onclick="document.getElementById('pdfFile').click()">
+                Choose PDF
+            </button>
+            <p id="fileName" style="margin-top:10px; color:#58A6FF; font-size:13px;"></p>
+            <button class="upload-btn" id="uploadBtn" onclick="uploadPDF()" style="margin-top:10px; display:none;">
+                Upload PDF
+            </button>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="qa-box">
+            <div class="chat-area" id="chatArea">
+                <div class="message ai-msg">
+                    Assalam o Alaikum! Upload your PDF and ask questions! 📄
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="Ask a question about the PDF..." 
+                    onkeypress="handleKey(event)">
+                <button class="send-btn" id="sendBtn" onclick="askQuestion()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:8000';
+
+        document.getElementById('pdfFile').addEventListener('change', function() {
+            const fileName = this.files[0]?.name;
+            if (fileName) {
+                document.getElementById('fileName').textContent = fileName;
+                document.getElementById('uploadBtn').style.display = 'inline-block';
+            }
+        });
+
+        async function uploadPDF() {
+            const file = document.getElementById('pdfFile').files[0];
+            if (!file) return;
+
+            const status = document.getElementById('status');
+            status.className = 'status loading';
+            status.textContent = 'Uploading PDF...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                status.className = 'status success';
+                status.textContent = `✅ PDF ready! ${data.pages} pages — Ab sawaal poochho!`;
+
+            } catch (error) {
+                status.className = 'status error';
+                status.textContent = 'Error: PDF upload nahi hui!';
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const chatArea = document.getElementById('chatArea');
+            const sendBtn = document.getElementById('sendBtn');
+
+            const question = input.value.trim();
+            if (!question) return;
+
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-msg';
+            userDiv.textContent = question;
+            chatArea.appendChild(userDiv);
+
+            input.value = '';
+            sendBtn.disabled = true;
+
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message ai-msg';
+            typingDiv.textContent = 'AI padh raha hai...';
+            chatArea.appendChild(typingDiv);
+
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            try {
+                const response = await fetch(`${API}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+                const data = await response.json();
+
+                typingDiv.remove();
+
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'message ai-msg';
+                aiDiv.textContent = data.answer;
+                if (!isDark) {
+    aiDiv.style.background = '#F0F0F0';
+    aiDiv.style.color = '#1C1C1C';
+}
+                chatArea.appendChild(aiDiv);
+
+            } catch (error) {
+                typingDiv.remove();
+                const errDiv = document.createElement('div');
+                errDiv.className = 'message ai-msg';
+                errDiv.style.color = '#F85149';
+                errDiv.textContent = 'Error: Server se connection nahi hua!';
+                chatArea.appendChild(errDiv);
+            }
+
+            sendBtn.disabled = false;
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function handleKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                askQuestion();
+            }
+        }
+       let isDark = true;
+
+function toggleMode() {
+    isDark = !isDark;
+    const btn = document.getElementById('modeBtn');
+    const root = document.documentElement;
+
+    if (isDark) {
+        document.body.style.background = '#0D1117';
+        document.body.style.color = '#E6EDF3';
+        document.querySelectorAll('.upload-box').forEach(el => {
+            el.style.background = '#161B22';
+            el.style.borderColor = '#30363D';
+        });
+        document.querySelectorAll('.qa-box').forEach(el => {
+            el.style.background = '#161B22';
+            el.style.borderColor = '#30363D';
+        });
+        document.querySelectorAll('.ai-msg').forEach(el => {
+            el.style.background = '#21262D';
+            el.style.color = '#E6EDF3';
+        });
+        document.querySelectorAll('input').forEach(el => {
+            el.style.background = '#0D1117';
+            el.style.color = '#E6EDF3';
+            el.style.borderColor = '#30363D';
+        });
+        btn.style.background = '#21262D';
+        btn.style.color = '#E6EDF3';
+        btn.textContent = '🌙 Dark';
+    } else {
+        document.body.style.background = '#F6F8FA';
+        document.body.style.color = '#1C1C1C';
+        document.querySelectorAll('.upload-box').forEach(el => {
+            el.style.background = '#FFFFFF';
+            el.style.borderColor = '#D0D7DE';
+        });
+        document.querySelectorAll('.qa-box').forEach(el => {
+            el.style.background = '#FFFFFF';
+            el.style.borderColor = '#D0D7DE';
+        });
+        document.querySelectorAll('.ai-msg').forEach(el => {
+            el.style.background = '#F0F0F0';
+            el.style.color = '#1C1C1C';
+        });
+        document.querySelectorAll('input').forEach(el => {
+            el.style.background = '#FFFFFF';
+            el.style.color = '#1C1C1C';
+            el.style.borderColor = '#D0D7DE';
+        });
+        btn.style.background = '#1C1C1C';
+        btn.style.color = '#FFFFFF';
+        btn.textContent = '☀️ Light';
+    }
+}
+    </script>
+</body>
+</html>

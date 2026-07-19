@@ -1,0 +1,13 @@
+FastAPI
+UploadFile
+File
+HTTPException
+FileResponse
+CORSMiddleware
+ChatGroq
+PyPDFLoader
+RecursiveCharacterTextSplitter
+FAISS
+load_dotenv
+HuggingFaceEmbeddings
+HumanMessage
