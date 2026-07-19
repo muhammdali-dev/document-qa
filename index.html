@@ -148,7 +148,9 @@
     </div>
 
     <script>
-        const API = 'https://document-qa-production.up.railway.app';
+        const API = window.location.hostname === '127.0.0.1' 
+    ? 'http://127.0.0.1:8000' 
+    : 'https://document-qa-production.up.railway.app';
 
         document.getElementById('pdfFile').addEventListener('change', function() {
             const fileName = this.files[0]?.name;
@@ -226,7 +228,7 @@ if (!response.ok) {
 
                 const aiDiv = document.createElement('div');
                 aiDiv.className = 'message ai-msg';
-                aiDiv.textContent = data.answer;
+                aiDiv.innerHTML = data.answer.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 if (!isDark) {
     aiDiv.style.background = '#F0F0F0';
     aiDiv.style.color = '#1C1C1C';
